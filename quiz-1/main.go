@@ -8,7 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 )
+
+type question struct {
+	q   string
+	ans string
+}
 
 func check(e error) {
 	if e != nil {
@@ -16,51 +22,54 @@ func check(e error) {
 	}
 }
 
-func quiz(f *os.File) (int, int) {
+func getQuestions(f *os.File, questions *[]question) error {
 	r := io.Reader(f)
 	csvReader := csv.NewReader(r)
-	// for i, q := range csvR {
-	// 	fmt.Printf("row %d:\t %s\n", i, q)
-	// }
-	// row, err := csvReader.Read()
-	// check(err)
-
-	var rowNum = 0
-	var correctAnsCount = 0
+	// questions := make([]question, 10)
 	for true {
 		row, err := csvReader.Read()
 		if err == io.EOF {
 			break
 		}
 
-		rowNum += 1
+		if err != nil {
+			return err
+		}
+		q := question{q: row[0], ans: row[1]}
+		*questions = append(*questions, q)
+	}
 
-		// fmt.Printf("row %d:\t%s\t%s\n", rowNum, row[0], row[1])
-		// col2 := strings.(row[1])
+	return nil
+}
+
+func quiz(questions *[]question, totalQuestions *int, ansCount *int) (int, int) {
+	for i, q := range *questions {
 		// convert from string to number
-		var question, ansStr = row[0], row[1]
-		ans, err := strconv.Atoi(ansStr)
+		rowNum := i + 1
+		ans, err := strconv.Atoi(q.ans)
 		check(err)
 		var userAnswer int
-		fmt.Printf("Question %d:\t%s = ", rowNum, question)
+		fmt.Printf("Question %d:\t%s = ", rowNum, q.q)
 		fmt.Scanln(&userAnswer)
 		if userAnswer == ans {
-			correctAnsCount += 1
+			*ansCount += 1
 		}
 	}
 
-	return rowNum, correctAnsCount
+	return *totalQuestions, *ansCount
 }
 
 func main() {
-	// Define flags
 	exePath, _ := os.Executable()
 	wd := filepath.Dir(exePath)
 	var filename string
-	// var quizTime int = 30
+	var quizTime int = 30
 	defaultFile := filepath.Join(wd + "/problems.csv")
+
 	flag.StringVar(&filename, "f", defaultFile, "Specify filename")
 	flag.StringVar(&filename, "file", defaultFile, "Specify filename (shorthand)")
+	flag.IntVar(&quizTime, "t", quizTime, "Specify the quiz time (in seconds)")
+	flag.IntVar(&quizTime, "time", quizTime, "Specify the quiz time (in seconds)")
 
 	// Parse flags
 	flag.Parse()
@@ -74,9 +83,38 @@ func main() {
 
 	f, err := os.Open(filename)
 	check(err)
+	var questions []question
+	err = getQuestions(f, &questions)
+	check(err)
 
-	correctAns, totalQuestions := quiz(f)
-	// fmt.Println("EOF")
+	fmt.Println("Quiz time: ", quizTime)
+	fmt.Println("Press Enter to start the quiz")
+	fmt.Scanln()
+
+	ch := make(chan bool, 1)
+	// var wg sync.WaitGroup
+	// wg.Add(1)
+	var totalQuestions int = 0
+	var ansCount int = 0
+
+	go func() {
+		// defer wg.Done()
+		quiz(&questions, &totalQuestions, &ansCount)
+
+		// fmt.Println("------------------------------------------")
+		// fmt.Printf("You answered %d correct out of %d question.\n", ansCount, totalQuestions)
+		ch <- true
+	}()
+
+	// wg.Wait()
+
+	select {
+	case <-ch:
+		fmt.Println("Done.")
+	case <-time.After(time.Duration(quizTime * int(time.Second))):
+		fmt.Println("\nTime out!")
+	}
+
 	fmt.Println("------------------------------------------")
-	fmt.Printf("You answered %d correct out of %d question.\n", correctAns, totalQuestions)
+	fmt.Printf("You answered %d correct out of %d question.\n", ansCount, len(questions))
 }
