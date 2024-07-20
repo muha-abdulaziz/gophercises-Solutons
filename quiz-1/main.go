@@ -16,35 +16,14 @@ func check(e error) {
 	}
 }
 
-func main() {
-	// Define flags
-	exePath, _ := os.Executable()
-	wd := filepath.Dir(exePath)
-	var filename string
-	defaultFile := filepath.Join(wd + "/problems.csv")
-	flag.StringVar(&filename, "f", defaultFile, "Specify filename")
-	flag.StringVar(&filename, "file", defaultFile, "Specify filename (shorthand)")
-
-	// Parse flags
-	flag.Parse()
-
-	// Check if a filename was provided
-	if filename == "" {
-		fmt.Println("No filename provided, using default: problems.csv")
-	} else {
-		fmt.Println("Using filename:", filename)
-	}
-
-	f, err := os.Open(filename)
-	check(err)
-
+func quiz(f *os.File) (int, int) {
 	r := io.Reader(f)
 	csvReader := csv.NewReader(r)
 	// for i, q := range csvR {
 	// 	fmt.Printf("row %d:\t %s\n", i, q)
 	// }
 	// row, err := csvReader.Read()
-	check(err)
+	// check(err)
 
 	var rowNum = 0
 	var correctAnsCount = 0
@@ -70,7 +49,34 @@ func main() {
 		}
 	}
 
-	fmt.Println("------------------------------------------")
-	fmt.Printf("You answerd %d correct out of %d question.\n", correctAnsCount, rowNum)
+	return rowNum, correctAnsCount
+}
+
+func main() {
+	// Define flags
+	exePath, _ := os.Executable()
+	wd := filepath.Dir(exePath)
+	var filename string
+	// var quizTime int = 30
+	defaultFile := filepath.Join(wd + "/problems.csv")
+	flag.StringVar(&filename, "f", defaultFile, "Specify filename")
+	flag.StringVar(&filename, "file", defaultFile, "Specify filename (shorthand)")
+
+	// Parse flags
+	flag.Parse()
+
+	// Check if a filename was provided
+	if filename == "" {
+		fmt.Println("No filename provided, using default: problems.csv")
+	} else {
+		fmt.Println("Using filename:", filename)
+	}
+
+	f, err := os.Open(filename)
+	check(err)
+
+	correctAns, totalQuestions := quiz(f)
 	// fmt.Println("EOF")
+	fmt.Println("------------------------------------------")
+	fmt.Printf("You answered %d correct out of %d question.\n", correctAns, totalQuestions)
 }
